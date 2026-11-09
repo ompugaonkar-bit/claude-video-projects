@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ten Times Bigger Film</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Gochi+Hand&display=swap">
+<style>
+/* Layout: a 16:9 film screen with caption, THUD and title overlays, then a single control bar. The film is driven by one timeline value t (0 to 10 s), so scrubbing and replay always match. */
+:root{
+  --bg:#f3f0ec; --surface:#ffffff; --fg:#2a211b; --muted:#6f625a; --line:#ddd3ca;
+  --accent:#d9660f; --accent-fg:#ffffff; --chip:#efe8e1;
+  --f-display:'Gochi Hand','Comic Sans MS','Chalkboard SE',cursive;
+  --f-body:'Gaegu','Comic Sans MS','Chalkboard SE',cursive;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#1b1714; --surface:#26211d; --fg:#f1e9e1; --muted:#b3a59b; --line:#3d342d;
+    --accent:#ff9d4d; --accent-fg:#1b1714; --chip:#322b25; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1b1714; --surface:#26211d; --fg:#f1e9e1; --muted:#b3a59b; --line:#3d342d;
+  --accent:#ff9d4d; --accent-fg:#1b1714; --chip:#322b25; color-scheme:dark;
+}
+body{
+  background:var(--bg); color:var(--fg); font-family:var(--f-body); font-size:20px;
+  padding-block:20px 32px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap{max-width:920px; margin:0 auto; display:flex; flex-direction:column; gap:18px}
+h1{font-family:var(--f-display); font-weight:400; font-size:clamp(30px,7vw,46px); line-height:1.1; margin:0; text-wrap:balance}
+.sub{margin:4px 0 0; color:var(--muted)}
+.card{background:var(--surface); border:1px solid var(--line); border-radius:14px; overflow:hidden}
+.screen{position:relative; aspect-ratio:16/9; background:#bfe3f5; overflow:hidden}
+#gl{display:block; width:100%; height:100%}
+.cap{
+  position:absolute; left:50%; bottom:5%; transform:translateX(-50%); max-width:92%; text-align:center;
+  background:rgba(253,252,248,.94); color:#3b2a20; border:2px solid #3b2a20; border-radius:16px;
+  padding:2px 16px; font-weight:700; font-size:clamp(17px,3.6vw,28px); line-height:1.25; pointer-events:none;
+  transition:opacity .25s;
+}
+.thud{
+  position:absolute; left:50%; top:30%; margin:0; transform:translate(-50%,-50%); pointer-events:none; opacity:0;
+  font-family:var(--f-display); font-size:clamp(48px,14vw,120px); line-height:1; color:#f5c62b;
+  -webkit-text-stroke:2px #3b2a20; paint-order:stroke fill; text-shadow:0 4px 0 #3b2a20;
+}
+.end{
+  position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+  pointer-events:none; text-align:center; padding:0 16px; transition:opacity .4s; background:rgba(31,33,85,.35);
+}
+.end b{
+  font-family:var(--f-display); font-weight:400; font-size:clamp(30px,8vw,76px); line-height:1.05; color:#fdfcf8;
+  -webkit-text-stroke:2px #3b2a20; paint-order:stroke fill; text-shadow:0 4px 0 #3b2a20; text-wrap:balance;
+}
+.end i{
+  font-style:normal; font-weight:700; font-size:clamp(18px,4vw,30px); background:#f5c62b; color:#3b2a20;
+  border:2px solid #3b2a20; border-radius:999px; padding:0 16px;
+}
+.cover{
+  position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
+  background:rgba(253,252,248,.3); cursor:pointer;
+}
+.bigplay{
+  width:84px; height:84px; border-radius:50%; border:3px solid #3b2a20; background:#f5c62b;
+  display:grid; place-items:center; cursor:pointer; padding:0;
+}
+.bigplay svg{width:36px; height:36px; margin-left:5px}
+.lbl{background:#fdfcf8; color:#3b2a20; border:2px solid #3b2a20; border-radius:999px; padding:0 14px; font-weight:700; font-size:22px}
+.fallback{position:absolute; inset:0; display:grid; place-items:center; padding:24px; text-align:center; background:#fdfcf8; color:#3b2a20; font-weight:700}
+.controls{display:flex; flex-wrap:wrap; align-items:center; gap:10px 12px; padding:12px 14px; border-top:1px solid var(--line)}
+.btn{
+  min-width:44px; height:44px; border-radius:22px; border:1px solid var(--line); background:var(--chip); color:var(--fg);
+  display:inline-grid; place-items:center; cursor:pointer; padding:0 14px; font:inherit; font-weight:700; font-size:18px;
+}
+.btn svg{width:20px; height:20px; fill:currentColor}
+.btn.main{background:var(--accent); color:var(--accent-fg); border-color:var(--accent); width:44px; padding:0}
+.btn[aria-pressed="true"]{background:var(--accent); color:var(--accent-fg); border-color:var(--accent)}
+.scrub{flex:1 1 180px; min-width:0; display:flex}
+.scrub input{width:100%; accent-color:var(--accent); height:28px; margin:0}
+.time{font-variant-numeric:tabular-nums; color:var(--muted); font-size:18px; min-width:6.4em; text-align:right}
+:is(button,input):focus-visible{outline:3px solid var(--accent); outline-offset:2px}
+.note{color:var(--muted); font-size:18px; margin:0}
+body{margin:0}
+</style></head><body>
+
+<div class="wrap">
+  <header>
+    <h1>Ten Times Bigger Film</h1>
+    <p class="sub">A 10-second 3D animation, rendered live in your browser.</p>
+  </header>
+
+  <section class="card" aria-label="Film player">
+    <div class="screen" id="view">
+      <canvas id="gl" aria-label="3D animation of a kid growing ten times bigger in a toy town"></canvas>
+      <p class="thud" id="thud">THUD!</p>
+      <div class="end" id="end"><b>The Day I Grew Ten Times Bigger</b><i>×10 taller, ×1,000 heavier</i></div>
+      <div class="cap" id="cap"></div>
+      <div class="cover" id="cover">
+        <button class="bigplay" id="bigPlay" type="button" aria-label="Play the 10 second film">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3 L21 12 L5 21Z" fill="#3b2a20"/></svg>
+        </button>
+        <span class="lbl" id="coverLbl">Play the 10-second film</span>
+      </div>
+    </div>
+    <div class="controls">
+      <button class="btn main" id="play" type="button" aria-label="Play">
+        <svg id="icPlay" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4 L20 12 L7 20Z"/></svg>
+        <svg id="icPause" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>
+      </button>
+      <button class="btn" id="replay" type="button" aria-label="Start over">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7z"/></svg>
+      </button>
+      <div class="scrub"><input id="scrub" type="range" min="0" max="1000" step="1" value="0" aria-label="Seek through the film"></div>
+      <span class="time" id="time">0.0 / 10.0 s</span>
+      <button class="btn" id="loop" type="button" aria-pressed="false">Loop</button>
+      <button class="btn" id="snd" type="button" aria-pressed="false">Sound</button>
+    </div>
+  </section>
+  <p class="note">This plays inside the page and is not a video file. To get an MP4, screen-record the player while it runs.</p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  var view=document.getElementById('view'), canvas=document.getElementById('gl');
+  function fail(msg){ var d=document.createElement('div'); d.className='fallback'; d.textContent=msg; view.appendChild(d); }
+  if(!window.THREE){ fail('The 3D library did not load. Reload the page to try again.'); return; }
+  var renderer;
+  try{ renderer=new THREE.WebGLRenderer({canvas:canvas, antialias:true}); }
+  catch(e){ fail('This browser could not start 3D graphics.'); return; }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+  renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+
+  var scene=new THREE.Scene();
+  scene.background=new THREE.Color(0xbfe3f5);
+  scene.fog=new THREE.Fog(0xbfe3f5, 70, 240);
+  var camera=new THREE.PerspectiveCamera(45,16/9,0.3,500);
+
+  function std(c){ return new THREE.MeshStandardMaterial({color:c, roughness:.95, metalness:0, flatShading:true}); }
+
+  scene.add(new THREE.HemisphereLight(0xffffff,0x6cc070,.85));
+  var sun=new THREE.DirectionalLight(0xfff2d0,1.05);
+  sun.position.set(34,64,24); sun.castShadow=true; sun.shadow.mapSize.set(2048,2048);
+  var scam=sun.shadow.camera; scam.left=-62; scam.right=62; scam.top=62; scam.bottom=-62; scam.near=10; scam.far=170;
+  sun.shadow.bias=-0.0008; scene.add(sun);
+
+  var ground=new THREE.Mesh(new THREE.CircleGeometry(150,48), std(0x7ccf6e));
+  ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; scene.add(ground);
+  var plaza=new THREE.Mesh(new THREE.CircleGeometry(9.5,40), std(0x9ae08a));
+  plaza.rotation.x=-Math.PI/2; plaza.position.y=.03; plaza.receiveShadow=true; scene.add(plaza);
+
+  var seed=7; function rnd(){ seed=(seed+0x6D2B79F5)|0; var t=Math.imul(seed^(seed>>>15),1|seed); t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }
+
+  var roadMat=std(0x8a8f9a);
+  for(var j=-6;j<=5;j++){
+    var p=4+8*j;
+    var rx=new THREE.Mesh(new THREE.PlaneGeometry(110,2.2),roadMat); rx.rotation.x=-Math.PI/2; rx.position.set(0,.02,p); rx.receiveShadow=true; scene.add(rx);
+    var rz=new THREE.Mesh(new THREE.PlaneGeometry(2.2,110),roadMat); rz.rotation.x=-Math.PI/2; rz.position.set(p,.02,0); rz.receiveShadow=true; scene.add(rz);
+  }
+
+  var walls=[0x8e63d6,0xa57be0,0x7a4fc2,0x9b6fd9,0xe8836a,0x6fa8e8], roofs=[0x5b3aa0,0x4b2e86,0x7a2f3a];
+  var wGeo=new THREE.BoxGeometry(3.6,3.2,3.6), rGeo=new THREE.ConeGeometry(3.1,1.7,4), dGeo=new THREE.BoxGeometry(.7,1.4,.1), doorMat=std(0xf5c62b);
+  var houses=[];
+  for(var i=-5;i<=5;i++){
+    for(var k=-5;k<=5;k++){
+      var x=i*8, z=k*8, dd=Math.sqrt(x*x+z*z);
+      if(dd<11.5) continue;
+      var g=new THREE.Group(); g.position.set(x,0,z); g.rotation.y=Math.floor(rnd()*4)*Math.PI/2;
+      var w=new THREE.Mesh(wGeo,std(walls[Math.floor(rnd()*walls.length)])); w.position.y=1.6; w.castShadow=true; w.receiveShadow=true; g.add(w);
+      var r=new THREE.Mesh(rGeo,std(roofs[Math.floor(rnd()*roofs.length)])); r.position.y=4.05; r.rotation.y=Math.PI/4; r.castShadow=true; g.add(r);
+      var d=new THREE.Mesh(dGeo,doorMat); d.position.set(0,.7,1.83); g.add(d);
+      scene.add(g); houses.push({g:g,d:dd});
+    }
+  }
+
+  var trunkMat=std(0x8a5a3a), leafMat=std(0x3fa34d);
+  for(var n=0;n<9;n++){
+    var a=n/9*Math.PI*2+.3, tr=new THREE.Group();
+    tr.position.set(Math.cos(a)*10.2,0,Math.sin(a)*10.2);
+    var tk=new THREE.Mesh(new THREE.CylinderGeometry(.18,.24,1.2,6),trunkMat); tk.position.y=.6; tk.castShadow=true; tr.add(tk);
+    var lf=new THREE.Mesh(new THREE.ConeGeometry(.9,2.2,7),leafMat); lf.position.y=2.2; lf.castShadow=true; tr.add(lf);
+    scene.add(tr);
+  }
+
+  var cars=[], carCols=[0x2f7bd9,0xe24a3b,0x2f7bd9,0xf5c62b,0x2f7bd9,0xe24a3b];
+  for(var c=0;c<6;c++){
+    var cg=new THREE.Group();
+    var body=new THREE.Mesh(new THREE.BoxGeometry(1.8,.6,.95),std(carCols[c])); body.position.y=.45; body.castShadow=true; cg.add(body);
+    var cab=new THREE.Mesh(new THREE.BoxGeometry(.9,.45,.8),std(0xfdfcf8)); cab.position.set(-.1,.95,0); cg.add(cab);
+    var lane=4+8*(c*2-5)+(c%2?.5:-.5), dir=(c%2)?-1:1;
+    cg.position.z=lane; if(dir<0) cg.rotation.y=Math.PI;
+    scene.add(cg); cars.push({g:cg,dir:dir,sp:5+c*.9,x0:-50+c*17});
+  }
+
+  var cloudMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:1,flatShading:true});
+  var clouds=[];
+  for(var q=0;q<9;q++){
+    var cg2=new THREE.Group();
+    for(var s2=0;s2<4;s2++){
+      var m=new THREE.Mesh(new THREE.IcosahedronGeometry(2.4+rnd()*1.8,1),cloudMat);
+      m.position.set(s2*3-4.5,rnd()*1.2,rnd()*1.6); cg2.add(m);
+    }
+    var bx=-90+rnd()*180;
+    cg2.position.set(bx,38+rnd()*22,-90+rnd()*140);
+    scene.add(cg2); clouds.push({g:cg2,x0:bx,sp:1.2+q*.12});
+  }
+
+  /* shockwave rings */
+  var rings=[];
+  for(var rr=0;rr<2;rr++){
+    var ring=new THREE.Mesh(new THREE.RingGeometry(.9,1,56), new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0,side:THREE.DoubleSide,depthWrite:false}));
+    ring.rotation.x=-Math.PI/2; ring.position.y=.08; ring.visible=false; scene.add(ring); rings.push(ring);
+  }
+
+  /* the kid */
+  var kid=new THREE.Group(); scene.add(kid);
+  var skin=std(0xf6c9a0), hair=std(0x6b3f22), shirt=std(0xe24a3b), shorts=std(0x2f7bd9), shoe=std(0x8a4b2a), ink=std(0x3b2a20);
+  function part(geo,mat,x,y,z){ var m=new THREE.Mesh(geo,mat); m.position.set(x,y,z); m.castShadow=true; kid.add(m); return m; }
+  [-.18,.18].forEach(function(sx){
+    part(new THREE.CylinderGeometry(.1,.1,.6,10),skin,sx,.44,0);
+    part(new THREE.BoxGeometry(.3,.16,.46),shoe,sx,.08,.06);
+  });
+  part(new THREE.BoxGeometry(.58,.32,.36),shorts,0,.88,0);
+  part(new THREE.BoxGeometry(.64,.64,.38),shirt,0,1.3,0);
+  var arms=[];
+  [-1,1].forEach(function(sd){
+    var piv=new THREE.Group(); piv.position.set(sd*.38,1.55,0);
+    var arm=new THREE.Mesh(new THREE.CylinderGeometry(.09,.09,.62,8),skin); arm.position.y=-.31; arm.castShadow=true; piv.add(arm);
+    var hand=new THREE.Mesh(new THREE.SphereGeometry(.11,10,8),skin); hand.position.y=-.64; hand.castShadow=true; piv.add(hand);
+    kid.add(piv); arms.push({p:piv,sd:sd});
+  });
+  var head=new THREE.Group(); head.position.y=1.95; kid.add(head);
+  var skull=new THREE.Mesh(new THREE.SphereGeometry(.32,18,14),skin); skull.castShadow=true; head.add(skull);
+  var hr=new THREE.Mesh(new THREE.SphereGeometry(.345,18,10,0,Math.PI*2,0,Math.PI*.46),hair); hr.rotation.x=-.25; hr.castShadow=true; head.add(hr);
+  [-.11,.11].forEach(function(ex){ var e=new THREE.Mesh(new THREE.SphereGeometry(.04,8,6),ink); e.position.set(ex,.03,.3); head.add(e); });
+  var nose=new THREE.Mesh(new THREE.SphereGeometry(.05,8,6),std(0xeeae82)); nose.position.set(0,-.03,.32); head.add(nose);
+  var smile=new THREE.Mesh(new THREE.TorusGeometry(.1,.018,6,14,Math.PI),ink); smile.rotation.z=Math.PI; smile.position.set(0,-.09,.3); head.add(smile);
+  [-.2,.2].forEach(function(cx){ var ch=new THREE.Mesh(new THREE.CircleGeometry(.05,10),new THREE.MeshBasicMaterial({color:0xf58f8f,transparent:true,opacity:.6})); ch.position.set(cx,-.05,.3); ch.lookAt(cx*3,-.05,2); head.add(ch); });
+
+  var hat=new THREE.Group(); kid.add(hat);
+  [[-.26,0,0,.3],[0,.12,0,.37],[.27,0,0,.29],[0,.02,.2,.26],[0,.02,-.2,.26]].forEach(function(s){
+    var cm=new THREE.Mesh(new THREE.IcosahedronGeometry(s[3],1),cloudMat); cm.position.set(s[0],s[1],s[2]); cm.castShadow=true; hat.add(cm);
+  });
+
+  /* ---------- timeline ---------- */
+  var DUR=10, STOMPS=[5.6,6.6];
+  function ss(a,b,t){ var x=Math.max(0,Math.min(1,(t-a)/(b-a))); return x*x*(3-2*x); }
+  function io(p){ return p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2; }
+  function bounce(x){
+    var n1=7.5625,d1=2.75;
+    if(x<1/d1) return n1*x*x;
+    if(x<2/d1){ x-=1.5/d1; return n1*x*x+.75; }
+    if(x<2.5/d1){ x-=2.25/d1; return n1*x*x+.9375; }
+    x-=2.625/d1; return n1*x*x+.984375;
+  }
+  function sAt(t){ if(t<1.2) return 1; if(t>=5.2) return 10; return 1+9*io((t-1.2)/4); }
+
+  var capEl=document.getElementById('cap'), thudEl=document.getElementById('thud'), endEl=document.getElementById('end');
+  var capText='';
+  function caption(t){
+    if(t<1.2) return 'Just a normal kid.';
+    if(t<5.2) return 'What if I get ten times bigger?';
+    if(t<7.2) return 'A thousand times heavier!';
+    if(t<9) return 'A cloud, just the right size for a hat.';
+    return '';
+  }
+
+  function render(t){
+    var s=sAt(t);
+    var stompDip=0, shake=0, thudAge=99;
+    STOMPS.forEach(function(ts,idx){
+      var age=t-ts;
+      if(age>=0 && age<1.6){
+        stompDip+=Math.exp(-age*9);
+        shake+=Math.exp(-age*5)*Math.sin(age*46);
+        if(age<thudAge) thudAge=age;
+      }
+      var ring=rings[idx];
+      if(age>=0 && age<1.4){
+        var rad=Math.max(.01,age*30); ring.visible=true; ring.scale.setScalar(rad); ring.material.opacity=.85*(1-age/1.4);
+      } else ring.visible=false;
+    });
+
+    kid.scale.setScalar(s);
+    kid.position.y=-.035*s*stompDip;
+    arms.forEach(function(a){ a.p.rotation.z=a.sd*(.32+.08*Math.sin(t*1.6)); });
+    head.rotation.y=Math.sin(t*.7)*.12;
+
+    /* cloud hat drops in */
+    var hp=ss(7.2,8.3,t);
+    hat.visible = t>=7.2;
+    hat.position.y = 2.3 + 6*(1-bounce(hp));
+
+    /* houses hop on shockwave */
+    for(var h=0;h<houses.length;h++){
+      var hy=0;
+      for(var q2=0;q2<STOMPS.length;q2++){
+        var ag=t-STOMPS[q2];
+        if(ag>0 && ag<2.6){ var rad2=ag*30; hy+=1.0*Math.exp(-Math.pow((houses[h].d-rad2)/5,2))*Math.exp(-ag*.8); }
+      }
+      houses[h].g.position.y=hy;
+    }
+
+    cars.forEach(function(c){
+      var span=112, x=((c.x0+c.dir*c.sp*t+56)%span+span)%span-56;
+      c.g.position.x=x;
+    });
+    clouds.forEach(function(c){ c.g.position.x=((c.x0+c.sp*t+110)%220+220)%220-110; });
+
+    /* camera */
+    var hero=ss(7,10,t);
+    var az=.45+.10*t+1.3*hero;
+    var el=.12+.22*ss(1.2,5.2,t)-.24*hero;
+    var dist=(7+3.5*s)*(1-.18*hero);
+    var ty=1.1*s+.35*s*hero;
+    var cx=Math.cos(el)*Math.sin(az)*dist, cy=Math.sin(el)*dist, cz=Math.cos(el)*Math.cos(az)*dist;
+    var amp=.05*s;
+    camera.position.set(cx+shake*amp*.6, ty+cy+shake*amp, cz);
+    camera.lookAt(0,ty,0);
+
+    renderer.render(scene,camera);
+
+    /* overlays */
+    var ct=caption(t);
+    if(ct!==capText){ capText=ct; capEl.textContent=ct; capEl.style.opacity=ct?1:0; }
+    if(thudAge<.8){ thudEl.style.opacity=String(1-thudAge/.8); thudEl.style.transform='translate(-50%,-50%) scale('+(1+.5*Math.exp(-thudAge*8)).toFixed(3)+') rotate(-5deg)'; }
+    else thudEl.style.opacity='0';
+    endEl.style.opacity=String(ss(9,9.6,t));
+  }
+
+  /* ---------- player ---------- */
+  var scrub=document.getElementById('scrub'), timeEl=document.getElementById('time'), cover=document.getElementById('cover'), coverLbl=document.getElementById('coverLbl');
+  var playBtn=document.getElementById('play'), icPlay=document.getElementById('icPlay'), icPause=document.getElementById('icPause');
+  var loopBtn=document.getElementById('loop'), sndBtn=document.getElementById('snd');
+  var t=0, prev=0, playing=false, last=0, mode='poster', loop=false, sound=false, actx=null;
+
+  function thump(){
+    try{
+      if(!sound||!actx) return;
+      var now=actx.currentTime, o=actx.createOscillator(), g=actx.createGain();
+      o.type='sine'; o.frequency.setValueAtTime(110,now); o.frequency.exponentialRampToValueAtTime(38,now+.35);
+      g.gain.setValueAtTime(.9,now); g.gain.exponentialRampToValueAtTime(.001,now+.6);
+      o.connect(g); g.connect(actx.destination); o.start(now); o.stop(now+.65);
+    }catch(e){}
+  }
+  function ui(){
+    scrub.value=String(Math.round(t/DUR*1000));
+    timeEl.textContent=t.toFixed(1)+' / 10.0 s';
+    icPlay.hidden=playing; icPause.hidden=!playing;
+    playBtn.setAttribute('aria-label',playing?'Pause':'Play');
+  }
+  function resize(){
+    var w=view.clientWidth,h=view.clientHeight; if(!w||!h) return;
+    renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); render(t);
+  }
+  function poster(){ mode='poster'; playing=false; t=9.9; prev=t; cover.hidden=false; coverLbl.textContent='Play the 10-second film'; render(t); ui(); }
+  function start(){
+    mode='run'; cover.hidden=true; t=0; prev=0; render(0); playing=true; last=performance.now(); ui(); requestAnimationFrame(tick);
+  }
+  function play(){
+    if(playing) return;
+    if(mode!=='run' || t>=DUR-0.02){ start(); return; }
+    playing=true; last=performance.now(); ui(); requestAnimationFrame(tick);
+  }
+  function pause(){ playing=false; ui(); }
+  function tick(now){
+    if(!playing) return;
+    var dt=Math.min((now-last)/1000,.1); last=now;
+    prev=t; t+=dt;
+    STOMPS.forEach(function(ts){ if(prev<ts && t>=ts) thump(); });
+    if(t>=DUR){
+      if(loop){ t=0; prev=0; }
+      else { t=DUR; render(t); playing=false; mode='ended'; cover.hidden=false; coverLbl.textContent='Watch again'; ui(); return; }
+    }
+    render(t); ui(); requestAnimationFrame(tick);
+  }
+
+  playBtn.addEventListener('click',function(){ if(playing) pause(); else play(); });
+  document.getElementById('replay').addEventListener('click',function(){ playing=false; start(); });
+  document.getElementById('bigPlay').addEventListener('click',function(e){ e.stopPropagation(); start(); });
+  cover.addEventListener('click',start);
+  scrub.addEventListener('input',function(){
+    if(mode!=='run'){ mode='run'; cover.hidden=true; }
+    t=Number(scrub.value)/1000*DUR; prev=t; render(t); ui();
+  });
+  loopBtn.addEventListener('click',function(){ loop=!loop; loopBtn.setAttribute('aria-pressed',String(loop)); });
+  sndBtn.addEventListener('click',function(){
+    sound=!sound; sndBtn.setAttribute('aria-pressed',String(sound));
+    if(sound && !actx){ try{ actx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ actx=null; } }
+    if(sound && actx && actx.state==='suspended'){ try{ actx.resume(); }catch(e){} }
+    if(sound) thump();
+  });
+  document.addEventListener('visibilitychange',function(){ if(document.hidden&&playing) pause(); });
+  if(window.ResizeObserver){ new ResizeObserver(resize).observe(view); } else { window.addEventListener('resize',resize); }
+
+  resize(); poster();
+})();
+</script>
+
+</body></html>

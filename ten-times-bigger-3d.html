@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ten Times Bigger 3D</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Gochi+Hand&display=swap">
+<style>
+/* Layout: heading, one large 3D viewport card with controls beneath, then three readout tiles that show the cube law (10 x 10 x 10). */
+:root{
+  --bg:#f3f0ec; --surface:#ffffff; --fg:#2a211b; --muted:#6f625a; --line:#ddd3ca;
+  --accent:#d9660f; --accent-fg:#ffffff; --chip:#efe8e1; --red:#c93a2b;
+  --f-display:'Gochi Hand','Comic Sans MS','Chalkboard SE',cursive;
+  --f-body:'Gaegu','Comic Sans MS','Chalkboard SE',cursive;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#1b1714; --surface:#26211d; --fg:#f1e9e1; --muted:#b3a59b; --line:#3d342d;
+    --accent:#ff9d4d; --accent-fg:#1b1714; --chip:#322b25; --red:#ff7b69; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1b1714; --surface:#26211d; --fg:#f1e9e1; --muted:#b3a59b; --line:#3d342d;
+  --accent:#ff9d4d; --accent-fg:#1b1714; --chip:#322b25; --red:#ff7b69; color-scheme:dark;
+}
+body{
+  background:var(--bg); color:var(--fg); font-family:var(--f-body); font-size:20px;
+  padding-block:20px 32px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap{max-width:960px; margin:0 auto; display:flex; flex-direction:column; gap:18px}
+h1{font-family:var(--f-display); font-weight:400; font-size:clamp(30px,7vw,46px); line-height:1.1; margin:0; text-wrap:balance}
+.sub{margin:4px 0 0; color:var(--muted)}
+.card{background:var(--surface); border:1px solid var(--line); border-radius:14px; overflow:hidden}
+.view{position:relative; height:clamp(320px,60vh,560px); background:#bfe3f5; touch-action:none}
+#gl{display:block; width:100%; height:100%}
+.hint{
+  position:absolute; left:12px; bottom:12px; right:12px; pointer-events:none;
+  font-size:18px; font-weight:700; color:#3b2a20;
+}
+.hint span{background:rgba(253,252,248,.9); border:2px solid #3b2a20; border-radius:999px; padding:1px 12px; display:inline-block}
+.fallback{position:absolute; inset:0; display:grid; place-items:center; padding:24px; text-align:center; background:#fdfcf8; color:#3b2a20; font-weight:700}
+.controls{display:grid; grid-template-columns:1fr; gap:12px; padding:14px}
+.row{display:flex; flex-wrap:wrap; align-items:center; gap:10px 12px}
+.size{display:flex; align-items:center; gap:12px; flex:1 1 260px; min-width:0}
+.size label{font-weight:700; white-space:nowrap}
+.size input{flex:1; min-width:0; accent-color:var(--accent); height:28px; margin:0}
+.big{font-variant-numeric:tabular-nums; font-weight:700; min-width:3.2em; text-align:right; color:var(--accent)}
+.btn{
+  height:44px; border-radius:22px; border:1px solid var(--line); background:var(--chip); color:var(--fg);
+  padding:0 16px; font:inherit; font-weight:700; font-size:19px; cursor:pointer;
+}
+.btn.main{background:var(--accent); color:var(--accent-fg); border-color:var(--accent)}
+.btn[aria-pressed="true"]{background:var(--accent); color:var(--accent-fg); border-color:var(--accent)}
+:is(button,input):focus-visible{outline:3px solid var(--accent); outline-offset:2px}
+.tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px}
+.tile{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:12px 16px; min-width:0}
+.tile .k{color:var(--muted); font-size:18px}
+.tile .v{font-family:var(--f-display); font-size:clamp(30px,6vw,40px); line-height:1.15; font-variant-numeric:tabular-nums}
+.tile .v.red{color:var(--red)}
+.note{color:var(--muted); font-size:18px; margin:0}
+body{margin:0}
+</style></head><body>
+
+<div class="wrap">
+  <header>
+    <h1>Ten Times Bigger 3D</h1>
+    <p class="sub">Walk around the kid and slide the size from normal to ten times bigger.</p>
+  </header>
+
+  <section class="card" aria-label="3D viewer">
+    <div class="view" id="view">
+      <canvas id="gl" aria-label="3D toy town with a kid that can grow up to ten times bigger"></canvas>
+      <div class="hint"><span>Drag to orbit, pinch or scroll to zoom</span></div>
+    </div>
+    <div class="controls">
+      <div class="row">
+        <div class="size">
+          <label for="size">Size</label>
+          <input id="size" type="range" min="1" max="10" step="0.1" value="10">
+          <span class="big" id="sizeOut">×10</span>
+        </div>
+      </div>
+      <div class="row">
+        <button class="btn main" id="grow" type="button">Grow from ×1</button>
+        <button class="btn" id="p1" type="button">×1</button>
+        <button class="btn" id="p3" type="button">×3</button>
+        <button class="btn" id="p10" type="button">×10</button>
+        <button class="btn" id="hat" type="button" aria-pressed="true">Cloud hat</button>
+        <button class="btn" id="spin" type="button" aria-pressed="false">Auto-orbit</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="tiles" aria-label="Size readouts">
+    <div class="tile"><div class="k">Height</div><div class="v" id="hOut">12.0 m</div></div>
+    <div class="tile"><div class="k">Weight, about</div><div class="v red" id="wOut">25.0 t</div></div>
+    <div class="tile"><div class="k">Heavier than before</div><div class="v" id="xOut">×1,000</div></div>
+  </section>
+  <p class="note">Example kid: 1.2 m tall and 25 kg. Grow ten times taller and every direction stretches, so weight grows by 10 × 10 × 10.</p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+  var view=document.getElementById('view'), canvas=document.getElementById('gl');
+  var sizeIn=document.getElementById('size'), sizeOut=document.getElementById('sizeOut');
+  var hOut=document.getElementById('hOut'), wOut=document.getElementById('wOut'), xOut=document.getElementById('xOut');
+  var reduce=window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function fail(msg){
+    var d=document.createElement('div'); d.className='fallback'; d.textContent=msg; view.appendChild(d);
+  }
+  if(!window.THREE || !THREE.OrbitControls){ fail('The 3D library did not load. Reload the page to try again.'); return; }
+
+  var renderer;
+  try{
+    renderer=new THREE.WebGLRenderer({canvas:canvas, antialias:true});
+  }catch(e){ fail('This browser could not start 3D graphics.'); return; }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+  renderer.shadowMap.enabled=true;
+  renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+
+  var scene=new THREE.Scene();
+  scene.background=new THREE.Color(0xbfe3f5);
+  scene.fog=new THREE.Fog(0xbfe3f5, 70, 240);
+  var camera=new THREE.PerspectiveCamera(45, 1, 0.5, 500);
+
+  var controls=new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping=true; controls.dampingFactor=.08;
+  controls.maxPolarAngle=Math.PI/2-0.02; controls.minDistance=4; controls.maxDistance=120;
+  controls.autoRotateSpeed=1.2;
+
+  function std(c){ return new THREE.MeshStandardMaterial({color:c, roughness:.95, metalness:0, flatShading:true}); }
+
+  /* lights */
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x6cc070, .85));
+  var sun=new THREE.DirectionalLight(0xfff2d0, 1.05);
+  sun.position.set(34,64,24); sun.castShadow=true;
+  sun.shadow.mapSize.set(2048,2048);
+  var sc=sun.shadow.camera; sc.left=-62; sc.right=62; sc.top=62; sc.bottom=-62; sc.near=10; sc.far=170;
+  sun.shadow.bias=-0.0008;
+  scene.add(sun);
+
+  /* ground */
+  var ground=new THREE.Mesh(new THREE.CircleGeometry(150,48), std(0x7ccf6e));
+  ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; scene.add(ground);
+  var plaza=new THREE.Mesh(new THREE.CircleGeometry(9.5,40), std(0x9ae08a));
+  plaza.rotation.x=-Math.PI/2; plaza.position.y=.03; plaza.receiveShadow=true; scene.add(plaza);
+
+  /* seeded random */
+  var seed=7; function rnd(){ seed=(seed+0x6D2B79F5)|0; var t=Math.imul(seed^(seed>>>15),1|seed); t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }
+
+  /* roads */
+  var roadMat=std(0x8a8f9a);
+  for(var j=-6;j<=5;j++){
+    var p=4+8*j;
+    var rx=new THREE.Mesh(new THREE.PlaneGeometry(110,2.2), roadMat); rx.rotation.x=-Math.PI/2; rx.position.set(0,.02,p); rx.receiveShadow=true; scene.add(rx);
+    var rz=new THREE.Mesh(new THREE.PlaneGeometry(2.2,110), roadMat); rz.rotation.x=-Math.PI/2; rz.position.set(p,.02,0); rz.receiveShadow=true; scene.add(rz);
+  }
+
+  /* houses */
+  var walls=[0x8e63d6,0xa57be0,0x7a4fc2,0x9b6fd9,0xe8836a,0x6fa8e8];
+  var roofs=[0x5b3aa0,0x4b2e86,0x7a2f3a];
+  var wGeo=new THREE.BoxGeometry(3.6,3.2,3.6), rGeo=new THREE.ConeGeometry(3.1,1.7,4), dGeo=new THREE.BoxGeometry(.7,1.4,.1);
+  var doorMat=std(0xf5c62b);
+  for(var i=-5;i<=5;i++){
+    for(var k=-5;k<=5;k++){
+      var x=i*8, z=k*8;
+      if(Math.sqrt(x*x+z*z)<11.5) continue;
+      var g=new THREE.Group(); g.position.set(x,0,z); g.rotation.y=Math.floor(rnd()*4)*Math.PI/2;
+      var w=new THREE.Mesh(wGeo, std(walls[Math.floor(rnd()*walls.length)])); w.position.y=1.6; w.castShadow=true; w.receiveShadow=true; g.add(w);
+      var r=new THREE.Mesh(rGeo, std(roofs[Math.floor(rnd()*roofs.length)])); r.position.y=4.05; r.rotation.y=Math.PI/4; r.castShadow=true; g.add(r);
+      var d=new THREE.Mesh(dGeo, doorMat); d.position.set(0,.7,1.83); g.add(d);
+      scene.add(g);
+    }
+  }
+
+  /* trees on the plaza edge */
+  var trunkMat=std(0x8a5a3a), leafMat=std(0x3fa34d);
+  for(var n=0;n<9;n++){
+    var a=n/9*Math.PI*2+.3, tr=new THREE.Group();
+    tr.position.set(Math.cos(a)*10.2, 0, Math.sin(a)*10.2);
+    var tk=new THREE.Mesh(new THREE.CylinderGeometry(.18,.24,1.2,6), trunkMat); tk.position.y=.6; tk.castShadow=true; tr.add(tk);
+    var lf=new THREE.Mesh(new THREE.ConeGeometry(.9,2.2,7), leafMat); lf.position.y=2.2; lf.castShadow=true; tr.add(lf);
+    scene.add(tr);
+  }
+
+  /* cars */
+  var cars=[];
+  var carCols=[0x2f7bd9,0xe24a3b,0x2f7bd9,0xf5c62b,0x2f7bd9,0xe24a3b];
+  for(var c=0;c<6;c++){
+    var cg=new THREE.Group();
+    var body=new THREE.Mesh(new THREE.BoxGeometry(1.8,.6,.95), std(carCols[c])); body.position.y=.45; body.castShadow=true; cg.add(body);
+    var cab=new THREE.Mesh(new THREE.BoxGeometry(.9,.45,.8), std(0xfdfcf8)); cab.position.set(-.1,.95,0); cg.add(cab);
+    var lane=4+8*(c*2-5)+ (c%2?.5:-.5);
+    cg.position.set(-50+c*17, 0, lane);
+    var dir=(c%2)?-1:1; if(dir<0) cg.rotation.y=Math.PI;
+    scene.add(cg); cars.push({g:cg,dir:dir,sp:5+c*.9});
+  }
+
+  /* ambient clouds */
+  var cloudMat=new THREE.MeshStandardMaterial({color:0xffffff, roughness:1, flatShading:true});
+  var clouds=[];
+  for(var q=0;q<9;q++){
+    var cg2=new THREE.Group();
+    for(var s2=0;s2<4;s2++){
+      var m=new THREE.Mesh(new THREE.IcosahedronGeometry(2.4+rnd()*1.8,1), cloudMat);
+      m.position.set(s2*3-4.5,rnd()*1.2,rnd()*1.6); cg2.add(m);
+    }
+    cg2.position.set(-90+rnd()*180, 38+rnd()*22, -90+rnd()*140);
+    scene.add(cg2); clouds.push(cg2);
+  }
+
+  /* the kid (feet at y=0, about 2.25 units tall at x1) */
+  var kid=new THREE.Group(); scene.add(kid);
+  var skin=std(0xf6c9a0), hair=std(0x6b3f22), shirt=std(0xe24a3b), shorts=std(0x2f7bd9), shoe=std(0x8a4b2a), ink=std(0x3b2a20);
+  function part(geo,mat,x,y,z){ var m=new THREE.Mesh(geo,mat); m.position.set(x,y,z); m.castShadow=true; kid.add(m); return m; }
+  [-.18,.18].forEach(function(sx){
+    part(new THREE.CylinderGeometry(.1,.1,.6,10), skin, sx,.44,0);
+    part(new THREE.BoxGeometry(.3,.16,.46), shoe, sx,.08,.06);
+  });
+  part(new THREE.BoxGeometry(.58,.32,.36), shorts, 0,.88,0);
+  part(new THREE.BoxGeometry(.64,.64,.38), shirt, 0,1.3,0);
+  var arms=[];
+  [-1,1].forEach(function(sd){
+    var piv=new THREE.Group(); piv.position.set(sd*.38,1.55,0);
+    var arm=new THREE.Mesh(new THREE.CylinderGeometry(.09,.09,.62,8), skin); arm.position.y=-.31; arm.castShadow=true; piv.add(arm);
+    var hand=new THREE.Mesh(new THREE.SphereGeometry(.11,10,8), skin); hand.position.y=-.64; hand.castShadow=true; piv.add(hand);
+    kid.add(piv); arms.push({p:piv,sd:sd});
+  });
+  var head=new THREE.Group(); head.position.y=1.95; kid.add(head);
+  var skull=new THREE.Mesh(new THREE.SphereGeometry(.32,18,14), skin); skull.castShadow=true; head.add(skull);
+  var hr=new THREE.Mesh(new THREE.SphereGeometry(.345,18,10,0,Math.PI*2,0,Math.PI*.46), hair); hr.rotation.x=-.25; hr.castShadow=true; head.add(hr);
+  [-.11,.11].forEach(function(ex){ var e=new THREE.Mesh(new THREE.SphereGeometry(.04,8,6), ink); e.position.set(ex,.03,.3); head.add(e); });
+  var nose=new THREE.Mesh(new THREE.SphereGeometry(.05,8,6), std(0xeeae82)); nose.position.set(0,-.03,.32); head.add(nose);
+  var smile=new THREE.Mesh(new THREE.TorusGeometry(.1,.018,6,14,Math.PI), ink); smile.rotation.z=Math.PI; smile.position.set(0,-.09,.3); head.add(smile);
+  [-.2,.2].forEach(function(cx){ var ch=new THREE.Mesh(new THREE.CircleGeometry(.05,10), new THREE.MeshBasicMaterial({color:0xf58f8f,transparent:true,opacity:.6})); ch.position.set(cx,-.05,.3); ch.lookAt(cx*3,-.05,2); head.add(ch); });
+
+  var hatGroup=new THREE.Group(); hatGroup.position.y=2.3; kid.add(hatGroup);
+  [[-.26,0,0,.3],[0,.12,0,.37],[.27,0,0,.29],[0,.02,.2,.26],[0,.02,-.2,.26]].forEach(function(s){
+    var cm=new THREE.Mesh(new THREE.IcosahedronGeometry(s[3],1), cloudMat); cm.position.set(s[0],s[1],s[2]); cm.castShadow=true; hatGroup.add(cm);
+  });
+
+  /* state */
+  var cur=10, tar=10, growAnim=null, fitting=false, fitGoal=null;
+  var BASE_H=1.2, BASE_W=25;
+
+  function fitFor(s){
+    var h=2.25*s;
+    return {y:h*0.5, dist:10+s*3.4};
+  }
+  function applyFitInstant(s){
+    var f=fitFor(s);
+    controls.target.set(0,f.y,0);
+    camera.position.set(0.6*f.dist, f.y+0.32*f.dist, 0.82*f.dist);
+    controls.update();
+  }
+  function startFit(s){
+    var f=fitFor(s);
+    var dir=camera.position.clone().sub(controls.target).normalize();
+    fitGoal={y:f.y, dist:f.dist, dir:dir};
+    fitting=true;
+  }
+  controls.addEventListener('start',function(){ fitting=false; });
+
+  function readout(s){
+    sizeOut.textContent='×'+s.toFixed(s>=9.95||s<=1.05?0:1);
+    var h=BASE_H*s; hOut.textContent=h.toFixed(1)+' m';
+    var kg=BASE_W*Math.pow(s,3);
+    wOut.textContent = kg>=1000 ? (kg/1000).toFixed(1)+' t' : Math.round(kg)+' kg';
+    xOut.textContent='×'+Math.round(Math.pow(s,3)).toLocaleString('en-US');
+  }
+
+  function setTarget(v, fit){
+    growAnim=null; tar=Math.max(1,Math.min(10,v)); sizeIn.value=String(tar);
+    if(fit!==false) startFit(tar);
+  }
+  sizeIn.addEventListener('input',function(){ growAnim=null; tar=Number(sizeIn.value); startFit(tar); });
+  document.getElementById('p1').addEventListener('click',function(){ setTarget(1); });
+  document.getElementById('p3').addEventListener('click',function(){ setTarget(3); });
+  document.getElementById('p10').addEventListener('click',function(){ setTarget(10); });
+  document.getElementById('grow').addEventListener('click',function(){
+    cur=1; tar=1; sizeIn.value='1';
+    growAnim={t0:performance.now(), dur:7000};
+    applyFitInstant(1); startFit(10);
+  });
+  var hatBtn=document.getElementById('hat'), spinBtn=document.getElementById('spin');
+  hatBtn.addEventListener('click',function(){
+    var on=hatBtn.getAttribute('aria-pressed')!=='true';
+    hatBtn.setAttribute('aria-pressed',String(on)); hatGroup.visible=on;
+  });
+  spinBtn.addEventListener('click',function(){
+    var on=spinBtn.getAttribute('aria-pressed')!=='true';
+    spinBtn.setAttribute('aria-pressed',String(on)); controls.autoRotate=on;
+  });
+
+  function resize(){
+    var w=view.clientWidth, h=view.clientHeight;
+    if(!w||!h) return;
+    renderer.setSize(w,h,false);
+    camera.aspect=w/h; camera.updateProjectionMatrix();
+  }
+  if(window.ResizeObserver){ new ResizeObserver(resize).observe(view); } else { window.addEventListener('resize',resize); }
+
+  applyFitInstant(10); resize(); readout(10);
+  kid.scale.setScalar(10);
+
+  var clock=new THREE.Clock();
+  function frame(){
+    requestAnimationFrame(frame);
+    var dt=Math.min(clock.getDelta(),.1), t=clock.elapsedTime;
+
+    if(growAnim){
+      var p=Math.min(1,(performance.now()-growAnim.t0)/growAnim.dur);
+      var e=p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2;
+      cur=1+9*e; tar=cur; sizeIn.value=String(cur);
+      if(p>=1){ growAnim=null; cur=tar=10; sizeIn.value='10'; }
+    } else {
+      cur+= (tar-cur)*(1-Math.exp(-dt*6));
+      if(Math.abs(tar-cur)<.002) cur=tar;
+    }
+    kid.scale.setScalar(cur);
+    readout(cur);
+
+    if(growAnim){
+      var f=fitFor(cur);
+      var dir0=camera.position.clone().sub(controls.target).normalize();
+      controls.target.y+= (f.y-controls.target.y)*.15;
+      camera.position.copy(controls.target).addScaledVector(dir0,f.dist);
+    } else if(fitting && fitGoal){
+      var dirNow=camera.position.clone().sub(controls.target); var dNow=dirNow.length(); dirNow.normalize();
+      controls.target.y+= (fitGoal.y-controls.target.y)*.08;
+      var nd=dNow+(fitGoal.dist-dNow)*.08;
+      camera.position.copy(controls.target).addScaledVector(dirNow,nd);
+      if(Math.abs(fitGoal.dist-dNow)<.05 && Math.abs(fitGoal.y-controls.target.y)<.05) fitting=false;
+    }
+
+    if(!reduce){
+      arms.forEach(function(a){ a.p.rotation.z = a.sd*(.32+.08*Math.sin(t*1.6)); });
+      head.rotation.y=Math.sin(t*.7)*.12;
+      clouds.forEach(function(c,i){ c.position.x+= dt*(1.2+i*.12); if(c.position.x>110) c.position.x=-110; });
+      cars.forEach(function(c){ c.g.position.x+= c.dir*c.sp*dt; if(c.g.position.x>56) c.g.position.x=-56; if(c.g.position.x<-56) c.g.position.x=56; });
+    }
+
+    controls.update();
+    renderer.render(scene,camera);
+  }
+  frame();
+})();
+</script>
+
+</body></html>
